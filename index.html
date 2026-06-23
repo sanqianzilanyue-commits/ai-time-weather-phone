@@ -73,8 +73,8 @@
 <header class="hero">
   <div class="kicker">让 AI 知冷暖、识晨昏 · 时间 / 天气 / 手机使用情况</div>
   <h1>让 AI 知道现在几点、外面什么天、你手机用了多久</h1>
-  <p class="lede">想让网页或后端里的 AI 不再活在真空里——知道<strong>现在几点</strong>、<strong>你隔了多久才回它</strong>、
-  <strong>窗外什么天</strong>、甚至<strong>你今天手机刷了多久</strong>。办法其实很朴素，一句话就能说清：
+  <p class="lede">想让网页或后端里的 AI 不再活在真空里——知道<strong>现在几点</strong>、<strong>她隔了多久才回它</strong>、
+  <strong>窗外什么天</strong>、甚至<strong>她今天手机刷了多久</strong>。办法其实很朴素，一句话就能说清：
   <strong>不是让 AI 自己去查，而是你提前把这些算好、拼成一小段文字，塞进同一次对话的提示词里。</strong>
   本文把每一块怎么做都讲透，附能直接照搬的代码；其中还顺手解决一个<strong>很多人搜不到</strong>的问题——
   iPhone 的屏幕使用情况，到底是怎么同步到 Mac、又怎么被读出来的。</p>
@@ -88,10 +88,10 @@
 <nav class="toc">
   <div class="h">目录</div>
   <a href="#idea">0 · 先说人话：这到底是在干嘛</a>
-  <a href="#time">1 · 现在几点：用用户自己的时间</a>
+  <a href="#time">1 · 现在几点：用她自己的时间</a>
   <a href="#gap">2 · 隔了多久才回：算两条消息的时间差</a>
   <a href="#weather">3 · 天气：问免费的天气接口，不经过 AI</a>
-  <a href="#mood">4 · 心情：用户自己记的状态（只取最近的）</a>
+  <a href="#mood">4 · 心情：她自己记的状态（只取最近的）</a>
   <a href="#phone">5 · 手机用了多久 —— 含那个找不到的文件</a>
   <a href="#prompt">6 · 怎么把这些拼进提示词（顺带省钱）</a>
   <a href="#checklist">7 · 一张落地清单</a>
@@ -100,18 +100,18 @@
 <h2 id="idea"><span class="num">0</span>先说人话：这到底是在干嘛</h2>
 <p>很多人一听「让 AI 知道时间、天气」，第一反应是「那得给 AI 配个查时间、查天气的工具吧」。
 其实大可不必，而且那样又慢又费。</p>
-<p>真正的做法简单得多：<strong>这些信息全由你的程序提前算好，拼成几行普通的文字，跟着用户这句话一起，塞进这一次对话的提示词里。</strong>
+<p>真正的做法简单得多：<strong>这些信息全由你的程序提前算好，拼成几行普通的文字，跟着她这句话一起，塞进这一次对话的提示词里。</strong>
 AI 并不会、也不需要自己去查——它只是在提示词里「读到」了「现在是晚上 11 点」「外面在下雨」这几行字而已。</p>
 <div class="callout gold">
   <div class="h">💡 一句话记住</div>
   <p>时间、天气、手机状态……都不是「让 AI 去查的动作」，而是「你写进提示词的文字」。
-  它们搭着用户的消息一起发出去，对模型来说就是一次普通对话，不会多产生任何「查询请求」。</p>
+  它们搭着她的消息一起发出去，对模型来说就是一次普通对话，不会多产生任何「查询请求」。</p>
 </div>
 <p>下面把每一块拆开讲。它们彼此独立，你需要哪块就抄哪块。</p>
 
-<h2 id="time"><span class="num">1</span>现在几点：用用户自己的时间</h2>
+<h2 id="time"><span class="num">1</span>现在几点：用她自己的时间</h2>
 <p>这块最容易想复杂。记住一个原则：<strong>别在服务器上取时间。</strong>
-服务器在哪个时区你未必清楚，用户人在哪你更不知道。直接在<strong>用户的浏览器</strong>里取，拿到的就是用户设备上的本地时间，人走到哪都准：</p>
+服务器在哪个时区你未必清楚，她人在哪你更不知道。直接在<strong>她的浏览器</strong>里取，拿到的就是她设备上的本地时间，人走到哪都准：</p>
 <pre><code>const now = new Date();
 const week = "日一二三四五六"[now.getDay()];
 const timeNote =
@@ -121,7 +121,7 @@ const timeNote =
 <p>末尾那句「深夜是深夜的语气」别省。光给数字，模型未必会换语气；明说一句，它在凌晨三点和清晨七点就不是一副腔调了。</p>
 
 <h2 id="gap"><span class="num">2</span>隔了多久才回：算两条消息的时间差</h2>
-<p>这块最有「人味」：让 AI 知道用户是<strong>秒回</strong>，还是<strong>隔了一整天才回来</strong>。
+<p>这块最有「人味」：让 AI 知道她是<strong>秒回</strong>，还是<strong>隔了一整天才回来</strong>。
 做法是往回翻聊天记录，找到 <strong>AI 上一次发言</strong>的时间戳，跟现在比一下：</p>
 <pre><code>let gapNote = "";
 for (let i = hist.length - 2; i >= 0; i--) {
@@ -131,14 +131,14 @@ for (let i = hist.length - 2; i >= 0; i--) {
       const s = gapMin < 120  ? Math.round(gapMin) + " 分钟"
               : gapMin < 2880 ? Math.round(gapMin / 60) + " 小时"
               :                 Math.round(gapMin / 1440) + " 天";
-      gapNote = "用户隔了大约 " + s + " 才回来——心里有数就好，合适时自然地接住，不用每次都点破。";
+      gapNote = "她隔了大约 " + s + " 才回来——心里有数就好，合适时自然地接住，不用每次都点破。";
     }
     break;
   }
 }</code></pre>
 <p>三个小分寸，决定它像不像个活人：</p>
 <ul>
-  <li><strong>45 分钟以内不提。</strong>聊得正热乎时对方转头一会儿就回来，AI 张口就「你隔了 2 分钟才回」，很扫兴。</li>
+  <li><strong>45 分钟以内不提。</strong>聊得正热乎时她转头一会儿就回来，AI 张口就「你隔了 2 分钟才回」，很扫兴。</li>
   <li><strong>单位会自动换。</strong>分钟 → 小时 → 天，别让它说「隔了 1440 分钟」。</li>
   <li><strong>给提示，不给命令。</strong>那句「不用每次都点破」很关键——否则 AI 会把「你晾了我」天天挂嘴边，变得啰嗦。
   你给的是背景信息，让它自己拿捏什么时候用，它才自然。</li>
@@ -159,7 +159,7 @@ const f = await fetch("https://api.open-meteo.com/v1/forecast?timezone=auto&fore
 const w = await f.json();</code></pre>
 <p>拿到后同样拼成一句话，并且附一句「该怎么用」的提示：</p>
 <pre><code>const weatherNote = w
-  ? "（用户此刻在" + city + "，天气 " + describe(w) + " " + temp + "°C" +
+  ? "（她此刻在" + city + "，天气 " + describe(w) + " " + temp + "°C" +
     "——合适时自然地关心一句，比如下雨提醒带伞；但别每次都提、更别像报菜单一样念天气。）"
   : "";</code></pre>
 <div class="callout">
@@ -168,19 +168,19 @@ const w = await f.json();</code></pre>
   天气只是被写进了那一次的提示词里而已。</p>
 </div>
 
-<h2 id="mood"><span class="num">4</span>心情：用户自己记的状态（只取最近的）</h2>
-<p>如果你的产品里有个让用户手动记一下「此刻心情 / 精力 / 睡眠 / 想说的话」的小面板，这份信息也能喂给 AI。
+<h2 id="mood"><span class="num">4</span>心情：她自己记的状态（只取最近的）</h2>
+<p>如果你的产品里有个让她手动记一下「此刻心情 / 精力 / 睡眠 / 想说的话」的小面板，这份信息也能喂给 AI。
 <strong>唯一要注意的是保鲜</strong>——只取最近 12 小时内记的，否则会拿昨天的旧心情冒充现在：</p>
 <pre><code>const s = userState;
 const fresh = s && s.at && (Date.now() - s.at < 12 * 3600 * 1000);   // 只认 12 小时内的
 const moodNote = fresh
-  ? "（用户此刻亲手记下：心情 " + s.mood + "、精力 " + s.energy + "、睡眠 " + s.sleep +
+  ? "（她此刻亲手记下：心情 " + s.mood + "、精力 " + s.energy + "、睡眠 " + s.sleep +
     (s.voice ? "；还写了一句：「" + s.voice + "」" : "") +
     "——温柔地接住这个状态，别生硬复述、也别像报菜单一样念出来。）"
   : "";</code></pre>
 
 <h2 id="phone"><span class="num">5</span>手机用了多久 —— 含那个找不到的文件</h2>
-<p>这是最多人卡住、网上又几乎搜不到准信的地方。想让 AI 知道用户「电量多少」「正用着哪个 app」「今天大概刷了多久」，
+<p>这是最多人卡住、网上又几乎搜不到准信的地方。想让 AI 知道她「电量多少」「正用着哪个 app」「今天大概刷了多久」，
 有<strong>两种办法</strong>，建议两个都上、互相补位。</p>
 
 <h3>办法一（主动、实时、最准）：手机用快捷指令往后端报</h3>
@@ -196,10 +196,10 @@ async def phone_data(token: str, req: Request):
     records.append(rec)                     # 一天一档，顺手清掉昨天的
     save(records)
     return {"ok": True}</code></pre>
-<p>好处：这是用户<strong>真的按下去的那一下</strong>，时间准、app 准。代价：要用户愿意配一下快捷指令，而且不可能覆盖每一个 app。</p>
+<p>好处：这是她<strong>真的按下去的那一下</strong>，时间准、app 准。代价：要她愿意配一下快捷指令，而且不可能覆盖每一个 app。</p>
 
 <h3>办法二（自动、被动、有延迟）：直接读 Mac 上的那个文件</h3>
-<p>如果不想让用户给每个 app 都配自动化，其实 <strong>macOS 已经悄悄把 iPhone 的「当前前台 app」同步到 Mac 上了</strong>，
+<p>如果不想让她给每个 app 都配自动化，其实 <strong>macOS 已经悄悄把 iPhone 的「当前前台 app」同步到 Mac 上了</strong>，
 就藏在这个路径里——这就是大家常常找不到的那个文件：</p>
 <div class="path">~/Library/Biome/streams/restricted/App.InFocus/remote/&lt;每台设备一个编号&gt;/&lt;一堆小文件&gt;</div>
 <p><strong>为什么是这个路径、为什么大家找不到：</strong></p>
@@ -257,12 +257,12 @@ def phone_app_now():
 </div>
 <p>三步过滤，把这两个坑堵上：</p>
 <ol>
-  <li><strong>先确认用户真醒着，才敢说他在用某个 app。</strong>只认两种铁证（满足其一即可）：
-  办法一里那种「真的按下去打开 app」的实时记录、且就在最近 25 分钟内；或者用户最近 25 分钟内真的在对话里说过话。
+  <li><strong>先确认她真醒着，才敢说他在用某个 app。</strong>只认两种铁证（满足其一即可）：
+  办法一里那种「真的按下去打开 app」的实时记录、且就在最近 25 分钟内；或者她最近 25 分钟内真的在对话里说过话。
   两样都没有，就当他可能睡了/把手机搁一边了，不拿被动读到的记录说事。</li>
   <li><strong>用真实操作当「锚点」来筛。</strong>统计今天用了多久时，被动读到的记录，
   只有落在某次「真的打开过 app」前后 30 分钟内才算数——这样就能把整批补传的睡前旧记录排除掉。</li>
-  <li><strong>被动记录只用来悄悄存底，绝不拿去主动给用户发通知。</strong>因为它经常报错 app，
+  <li><strong>被动记录只用来悄悄存底，绝不拿去主动给她发通知。</strong>因为它经常报错 app，
   凡是要主动开口的场合，一律以办法一的实时记录为准。</li>
 </ol>
 
@@ -270,7 +270,7 @@ def phone_app_now():
 <p>iPhone 那个精确到分钟的屏幕使用时间，系统<strong>不开放给第三方</strong>读，这个认了。
 所以退一步算笔粗账就好：每个 app 今天大概被打开了几次、最久一次连续用了多久（取<strong>最长的一段</strong>，别累加，累加会虚高），
 挑用得最多的一两个，拼成一句话，比如「今天小红书大概开了 7 次、最久一次约 35 分钟」。够 AI 拿来关心、打趣，就行。
-用户把越多 app 接上办法一的自动化，这笔账就越准。</p>
+她把越多 app 接上办法一的自动化，这笔账就越准。</p>
 
 <h2 id="prompt"><span class="num">6</span>怎么把这些拼进提示词（顺带省钱）</h2>
 <p>最后一步，把上面这些拼起来发给模型。这里有个<strong>省钱的关键</strong>，尤其当你开了「提示词缓存」的时候：</p>
@@ -292,7 +292,7 @@ const nowBlock = timeNote + gapNote + weatherNote + moodNote + phoneNote;</code>
 
 <h2 id="checklist"><span class="num">7</span>一张落地清单</h2>
 <ul>
-  <li>时间、间隔、天气、心情——<strong>都在前端算好</strong>，跟用户这句话一起发给后端；</li>
+  <li>时间、间隔、天气、心情——<strong>都在前端算好</strong>，跟她这句话一起发给后端；</li>
   <li>天气用 open-meteo，浏览器直接请求，不经过大模型；</li>
   <li>手机办法一：iOS 快捷指令 → 把电量 / 当前 app 发到你后端的一个简单接口；</li>
   <li>手机办法二：读 <code>~/Library/Biome/streams/restricted/App.InFocus/remote</code>，

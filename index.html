@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>让 AI 知道现在几点、外面什么天、你手机用了多久（含 iPhone 屏幕使用时间同步到 Mac 的读取方法）</title>
+<meta name="description" content="怎么让网页或后端里的 AI 知道「现在几点」「你隔了多久才回」「窗外什么天」「你此刻心情如何」，以及最难找的一块——iPhone 的屏幕使用情况是怎么同步到 Mac、又怎么读出来喂给 AI 的。核心办法：不是让 AI 去查，而是你把这些算好、拼成一段文字，塞进同一次对话的提示词里。附可直接照搬的代码。">
+<style>
+  :root{
+    --bg:#faf6f1; --card:#fffdfb; --ink:#3f3531; --muted:#7a6b63; --faint:#a99a90;
+    --rose:#c98a86; --rose-deep:#b06a66; --seal:#a45b54; --border:#ece1d8;
+    --code-bg:#2b2622; --code-ink:#ede4da;
+    --gold:#9a7b3f; --gold-bg:rgba(154,123,63,0.07); --gold-bd:rgba(154,123,63,0.4);
+    --serif:"Songti SC","Noto Serif SC",Georgia,"Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Segoe UI",Roboto,sans-serif;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+       line-height:1.85;font-size:16px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:820px;margin:0 auto;padding:0 22px 96px}
+  header.hero{padding:64px 0 36px;border-bottom:1px solid var(--border);margin-bottom:8px}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.22em;color:var(--rose-deep);
+          text-transform:uppercase;margin-bottom:14px}
+  h1{font-family:var(--serif);font-size:32px;line-height:1.4;margin:0 0 16px;font-weight:700;letter-spacing:.01em}
+  .lede{font-size:16.5px;color:var(--muted);margin:0;max-width:700px}
+  h2{font-family:var(--serif);font-size:23px;margin:52px 0 8px;padding-top:10px;font-weight:700}
+  h2 .num{color:var(--rose);font-family:var(--mono);font-size:18px;margin-right:10px}
+  h3{font-size:16.5px;margin:28px 0 6px;color:var(--seal)}
+  p{margin:12px 0}
+  a{color:var(--rose-deep);text-decoration:none;border-bottom:1px solid var(--rose)}
+  a:hover{color:var(--seal)}
+  code:not(pre code){background:#f2e9e1;color:var(--seal);font-family:var(--mono);
+       font-size:.86em;padding:.12em .42em;border-radius:6px;word-break:break-word}
+  pre{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13.5px;
+      line-height:1.7;padding:18px 20px;border-radius:14px;overflow-x:auto;margin:16px 0;
+      box-shadow:0 6px 22px rgba(63,53,49,.12)}
+  pre code{font-family:inherit;white-space:pre}
+  ul,ol{padding-left:1.3em;margin:12px 0}
+  li{margin:7px 0}
+  .callout{border-radius:14px;padding:16px 20px;margin:20px 0;border:1px solid var(--border);background:var(--card)}
+  .callout .h{font-family:var(--serif);font-weight:700;font-size:16px;margin:0 0 6px;display:flex;align-items:center;gap:8px}
+  .callout p{margin:8px 0}
+  .pit{border-left:4px solid var(--rose-deep);background:#fbf0ec}
+  .pit .h{color:var(--rose-deep)}
+  .gold{border:1px dashed var(--gold-bd);background:var(--gold-bg)}
+  .gold .h{color:var(--gold)}
+  .toc{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 22px;margin:28px 0}
+  .toc .h{font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--faint);text-transform:uppercase;margin-bottom:8px}
+  .toc a{display:block;border:none;padding:3px 0;color:var(--muted);font-size:14.5px}
+  .toc a:hover{color:var(--seal)}
+  table{width:100%;border-collapse:collapse;margin:18px 0;font-size:14.5px;background:var(--card);
+        border:1px solid var(--border);border-radius:14px;overflow:hidden}
+  th,td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
+  th{background:#f4ece4;font-family:var(--serif);color:var(--seal);font-weight:700}
+  tr:last-child td{border-bottom:none}
+  td strong{color:var(--rose-deep)}
+  .path{font-family:var(--mono);font-size:13px;background:var(--card);border:1px dashed var(--border);
+        border-radius:14px;padding:16px 18px;color:var(--seal);overflow-x:auto;line-height:1.9;margin:16px 0}
+  hr{border:none;border-top:1px solid var(--border);margin:40px 0}
+  footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);
+         color:var(--faint);font-size:13.5px;text-align:center}
+  .pill{display:inline-block;background:#f2e9e1;color:var(--seal);font-family:var(--mono);font-size:11.5px;
+        padding:3px 10px;border-radius:999px;margin:0 4px 6px 0}
+  @media(max-width:560px){h1{font-size:25px}.wrap{padding:0 16px 70px}header.hero{padding:44px 0 28px}
+    th,td{padding:9px 10px;font-size:13px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="kicker">让 AI 知冷暖、识晨昏 · 时间 / 天气 / 手机使用情况</div>
+  <h1>让 AI 知道现在几点、外面什么天、你手机用了多久</h1>
+  <p class="lede">想让网页或后端里的 AI 不再活在真空里——知道<strong>现在几点</strong>、<strong>你隔了多久才回它</strong>、
+  <strong>窗外什么天</strong>、甚至<strong>你今天手机刷了多久</strong>。办法其实很朴素，一句话就能说清：
+  <strong>不是让 AI 自己去查，而是你提前把这些算好、拼成一小段文字，塞进同一次对话的提示词里。</strong>
+  本文把每一块怎么做都讲透，附能直接照搬的代码；其中还顺手解决一个<strong>很多人搜不到</strong>的问题——
+  iPhone 的屏幕使用情况，到底是怎么同步到 Mac、又怎么被读出来的。</p>
+  <div style="margin-top:18px">
+    <span class="pill">提示词上下文</span><span class="pill">open-meteo 天气</span>
+    <span class="pill">iOS 快捷指令</span><span class="pill">Biome 流</span>
+    <span class="pill">屏幕使用时间</span><span class="pill">提示词缓存</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="h">目录</div>
+  <a href="#idea">0 · 先说人话：这到底是在干嘛</a>
+  <a href="#time">1 · 现在几点：用用户自己的时间</a>
+  <a href="#gap">2 · 隔了多久才回：算两条消息的时间差</a>
+  <a href="#weather">3 · 天气：问免费的天气接口，不经过 AI</a>
+  <a href="#mood">4 · 心情：用户自己记的状态（只取最近的）</a>
+  <a href="#phone">5 · 手机用了多久 —— 含那个找不到的文件</a>
+  <a href="#prompt">6 · 怎么把这些拼进提示词（顺带省钱）</a>
+  <a href="#checklist">7 · 一张落地清单</a>
+</nav>
+
+<h2 id="idea"><span class="num">0</span>先说人话：这到底是在干嘛</h2>
+<p>很多人一听「让 AI 知道时间、天气」，第一反应是「那得给 AI 配个查时间、查天气的工具吧」。
+其实大可不必，而且那样又慢又费。</p>
+<p>真正的做法简单得多：<strong>这些信息全由你的程序提前算好，拼成几行普通的文字，跟着用户这句话一起，塞进这一次对话的提示词里。</strong>
+AI 并不会、也不需要自己去查——它只是在提示词里「读到」了「现在是晚上 11 点」「外面在下雨」这几行字而已。</p>
+<div class="callout gold">
+  <div class="h">💡 一句话记住</div>
+  <p>时间、天气、手机状态……都不是「让 AI 去查的动作」，而是「你写进提示词的文字」。
+  它们搭着用户的消息一起发出去，对模型来说就是一次普通对话，不会多产生任何「查询请求」。</p>
+</div>
+<p>下面把每一块拆开讲。它们彼此独立，你需要哪块就抄哪块。</p>
+
+<h2 id="time"><span class="num">1</span>现在几点：用用户自己的时间</h2>
+<p>这块最容易想复杂。记住一个原则：<strong>别在服务器上取时间。</strong>
+服务器在哪个时区你未必清楚，用户人在哪你更不知道。直接在<strong>用户的浏览器</strong>里取，拿到的就是用户设备上的本地时间，人走到哪都准：</p>
+<pre><code>const now = new Date();
+const week = "日一二三四五六"[now.getDay()];
+const timeNote =
+  "现在是：" + now.getFullYear() + "年" + (now.getMonth() + 1) + "月" + now.getDate() +
+  "日 星期" + week + " " + now.getHours() + ":" + String(now.getMinutes()).padStart(2, "0") +
+  "。回话时自然地贴着此刻——深夜是深夜的语气，清晨是清晨的。";</code></pre>
+<p>末尾那句「深夜是深夜的语气」别省。光给数字，模型未必会换语气；明说一句，它在凌晨三点和清晨七点就不是一副腔调了。</p>
+
+<h2 id="gap"><span class="num">2</span>隔了多久才回：算两条消息的时间差</h2>
+<p>这块最有「人味」：让 AI 知道用户是<strong>秒回</strong>，还是<strong>隔了一整天才回来</strong>。
+做法是往回翻聊天记录，找到 <strong>AI 上一次发言</strong>的时间戳，跟现在比一下：</p>
+<pre><code>let gapNote = "";
+for (let i = hist.length - 2; i >= 0; i--) {
+  if (hist[i].role !== "user" && hist[i].at) {          // 找到 AI 上一条
+    const gapMin = (Date.now() - hist[i].at) / 60000;
+    if (gapMin > 45) {                                   // 45 分钟以内就不提了
+      const s = gapMin < 120  ? Math.round(gapMin) + " 分钟"
+              : gapMin < 2880 ? Math.round(gapMin / 60) + " 小时"
+              :                 Math.round(gapMin / 1440) + " 天";
+      gapNote = "用户隔了大约 " + s + " 才回来——心里有数就好，合适时自然地接住，不用每次都点破。";
+    }
+    break;
+  }
+}</code></pre>
+<p>三个小分寸，决定它像不像个活人：</p>
+<ul>
+  <li><strong>45 分钟以内不提。</strong>聊得正热乎时对方转头一会儿就回来，AI 张口就「你隔了 2 分钟才回」，很扫兴。</li>
+  <li><strong>单位会自动换。</strong>分钟 → 小时 → 天，别让它说「隔了 1440 分钟」。</li>
+  <li><strong>给提示，不给命令。</strong>那句「不用每次都点破」很关键——否则 AI 会把「你晾了我」天天挂嘴边，变得啰嗦。
+  你给的是背景信息，让它自己拿捏什么时候用，它才自然。</li>
+</ul>
+
+<h2 id="weather"><span class="num">3</span>天气：问免费的天气接口，不经过 AI</h2>
+<p>天气跟 AI 半点关系都没有，就是个普通的网络请求。用 <a href="https://open-meteo.com" target="_blank" rel="noopener">open-meteo</a> 就行——免费、不用申请密钥、个人用完全够。
+在浏览器里两步拿到：</p>
+<pre><code>// 1) 城市名 → 经纬度
+const g = await fetch("https://geocoding-api.open-meteo.com/v1/search?count=1&language=zh&name=" + encodeURIComponent(city));
+const loc = (await g.json()).results[0];
+
+// 2) 经纬度 → 今天的天气
+const f = await fetch("https://api.open-meteo.com/v1/forecast?timezone=auto&forecast_days=1" +
+  "&current=temperature_2m,weather_code" +
+  "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code" +
+  "&latitude=" + loc.latitude + "&longitude=" + loc.longitude);
+const w = await f.json();</code></pre>
+<p>拿到后同样拼成一句话，并且附一句「该怎么用」的提示：</p>
+<pre><code>const weatherNote = w
+  ? "（用户此刻在" + city + "，天气 " + describe(w) + " " + temp + "°C" +
+    "——合适时自然地关心一句，比如下雨提醒带伞；但别每次都提、更别像报菜单一样念天气。）"
+  : "";</code></pre>
+<div class="callout">
+  <div class="h">🔌 它走的是哪条线</div>
+  <p>这个请求是浏览器直接发给<strong>天气网站</strong>的，跟大模型无关。整套流程里唯一会用到模型的，只有「AI 回话」那一次；
+  天气只是被写进了那一次的提示词里而已。</p>
+</div>
+
+<h2 id="mood"><span class="num">4</span>心情：用户自己记的状态（只取最近的）</h2>
+<p>如果你的产品里有个让用户手动记一下「此刻心情 / 精力 / 睡眠 / 想说的话」的小面板，这份信息也能喂给 AI。
+<strong>唯一要注意的是保鲜</strong>——只取最近 12 小时内记的，否则会拿昨天的旧心情冒充现在：</p>
+<pre><code>const s = userState;
+const fresh = s && s.at && (Date.now() - s.at < 12 * 3600 * 1000);   // 只认 12 小时内的
+const moodNote = fresh
+  ? "（用户此刻亲手记下：心情 " + s.mood + "、精力 " + s.energy + "、睡眠 " + s.sleep +
+    (s.voice ? "；还写了一句：「" + s.voice + "」" : "") +
+    "——温柔地接住这个状态，别生硬复述、也别像报菜单一样念出来。）"
+  : "";</code></pre>
+
+<h2 id="phone"><span class="num">5</span>手机用了多久 —— 含那个找不到的文件</h2>
+<p>这是最多人卡住、网上又几乎搜不到准信的地方。想让 AI 知道用户「电量多少」「正用着哪个 app」「今天大概刷了多久」，
+有<strong>两种办法</strong>，建议两个都上、互相补位。</p>
+
+<h3>办法一（主动、实时、最准）：手机用快捷指令往后端报</h3>
+<p>最稳，不依赖任何隐藏文件。在 iPhone 上用<strong>「快捷指令」+「个人自动化」</strong>，
+定时或在打开某个 app 时，把数据发给你自己的后端：电量、是否在充电、当前打开的 app。后端收下、打上时间存起来：</p>
+<pre><code>@app.post("/phone/{token}/data")          # 用一个简单令牌，别让外人乱发
+async def phone_data(token: str, req: Request):
+    if token != PHONE_TOKEN:
+        raise HTTPException(401)
+    rec = await req.json()                 # 例如 {"battery": 74, "charging": false, "app": "小红书"}
+    rec["day"] = now.strftime("%Y-%m-%d")
+    rec["at"]  = now.strftime("%H:%M")
+    records.append(rec)                     # 一天一档，顺手清掉昨天的
+    save(records)
+    return {"ok": True}</code></pre>
+<p>好处：这是用户<strong>真的按下去的那一下</strong>，时间准、app 准。代价：要用户愿意配一下快捷指令，而且不可能覆盖每一个 app。</p>
+
+<h3>办法二（自动、被动、有延迟）：直接读 Mac 上的那个文件</h3>
+<p>如果不想让用户给每个 app 都配自动化，其实 <strong>macOS 已经悄悄把 iPhone 的「当前前台 app」同步到 Mac 上了</strong>，
+就藏在这个路径里——这就是大家常常找不到的那个文件：</p>
+<div class="path">~/Library/Biome/streams/restricted/App.InFocus/remote/&lt;每台设备一个编号&gt;/&lt;一堆小文件&gt;</div>
+<p><strong>为什么是这个路径、为什么大家找不到：</strong></p>
+<ul>
+  <li><code>Biome</code> 是 macOS 记录设备活动的一套机制（「屏幕使用时间」「智能建议」背后用的就是它）；</li>
+  <li><code>App.InFocus</code> 这一条，记的正是「当前在前台的是哪个 app」；</li>
+  <li>关键在最后那个 <strong><code>remote</code></strong> 目录——<code>local</code> 装的是本机的活动，
+  <strong><code>remote</code> 装的才是从你<u>别的</u>设备（也就是 iPhone）同步过来的</strong>。iPhone 的前台记录就落在这里；</li>
+  <li>网上大多数老教程只盯着一个叫 <code>knowledgeC.db</code> 的旧数据库，而新系统这条实时记录走的是 Biome。按老路找，自然找不到。</li>
+</ul>
+<div class="callout">
+  <div class="h">✅ 让这个文件有内容的三个前提（缺一不可）</div>
+  <p>1. iPhone 和 Mac <strong>登录同一个 Apple ID</strong>、都开着 iCloud；<br>
+  2. iPhone：设置 → 屏幕使用时间 →「<strong>跨设备共享</strong>」打开（就是它把记录同步到 Mac 的 <code>remote</code>）；<br>
+  3. 去读它的那个程序，要有「<strong>完全磁盘访问</strong>」权限（系统设置 → 隐私与安全性 → 完全磁盘访问，把你的终端 / 程序加进去）——这个目录是受保护的，没授权读不到。</p>
+</div>
+<p><strong>怎么读出来</strong>（纯 Python，从二进制小文件里捞出 app 标识，不依赖任何外部命令）：</p>
+<pre><code>from pathlib import Path
+import re
+from datetime import datetime
+
+FOCUS = Path.home() / "Library/Biome/streams/restricted/App.InFocus/remote"
+
+SKIP = ("springboard", "siri", "spotlight", "controlcenter",   # 系统级、无意义的，跳过
+        "backboard", "duet", "coreduet", "assistant", "preferences")
+NAMES = {  # app 标识 → 看得懂的名字，按需补充
+    "com.tencent.xin": "微信", "com.xingin.discover": "小红书",
+    "com.atebits.Tweetie2": "推特/X", "com.ss.iphone.ugc.Aweme": "抖音",
+}
+
+def phone_app_now():
+    """读最近在前台的 app，返回 (名字, 这条记录有多旧/分钟)。读不到就返回 None。"""
+    if not FOCUS.exists():
+        return None
+    files = [f for d in FOCUS.iterdir() if d.is_dir()
+             for f in d.iterdir() if f.is_file()]
+    if not files:
+        return None
+    newest = max(files, key=lambda f: f.stat().st_mtime)             # 取最新的那条
+    age = int((datetime.now().timestamp() - newest.stat().st_mtime) / 60)
+    text = newest.read_bytes().decode("latin-1", "ignore")          # 文件是二进制，但 app 标识是明文
+    ids = re.findall(r"com\.[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)+|tv\.[A-Za-z0-9.]+", text)
+    for i in reversed(ids):                                         # 从后往前找第一个非系统 app
+        if not any(s in i.lower() for s in SKIP):
+            return (NAMES.get(i, i), age)
+    return None</code></pre>
+<p>要点：文件是二进制的，但 app 标识（像 <code>com.tencent.xin</code>）是明文 ASCII，直接解码 + 正则就能捞出来；
+用文件的<strong>修改时间</strong>当「这条记录有多旧」的时间戳。</p>
+
+<div class="callout pit">
+  <div class="h">⚠️ 这条办法天生有延迟，必须配三步过滤</div>
+  <p>办法二是靠 iCloud 同步过来的，<strong>不是实时的</strong>，有两个坑，不处理就会让 AI 闹笑话：</p>
+  <p>· <strong>慢一拍</strong>：常常报成「上一个 app」，差几分钟到几十分钟；<br>
+  · <strong>整点补传</strong>：iPhone 会一小时一批地把睡前的旧记录补传上来——于是人都睡了，AI 还以为你在刷手机。</p>
+</div>
+<p>三步过滤，把这两个坑堵上：</p>
+<ol>
+  <li><strong>先确认用户真醒着，才敢说他在用某个 app。</strong>只认两种铁证（满足其一即可）：
+  办法一里那种「真的按下去打开 app」的实时记录、且就在最近 25 分钟内；或者用户最近 25 分钟内真的在对话里说过话。
+  两样都没有，就当他可能睡了/把手机搁一边了，不拿被动读到的记录说事。</li>
+  <li><strong>用真实操作当「锚点」来筛。</strong>统计今天用了多久时，被动读到的记录，
+  只有落在某次「真的打开过 app」前后 30 分钟内才算数——这样就能把整批补传的睡前旧记录排除掉。</li>
+  <li><strong>被动记录只用来悄悄存底，绝不拿去主动给用户发通知。</strong>因为它经常报错 app，
+  凡是要主动开口的场合，一律以办法一的实时记录为准。</li>
+</ol>
+
+<h3>为什么只能算「粗略时长」，不是苹果那种精确分钟数</h3>
+<p>iPhone 那个精确到分钟的屏幕使用时间，系统<strong>不开放给第三方</strong>读，这个认了。
+所以退一步算笔粗账就好：每个 app 今天大概被打开了几次、最久一次连续用了多久（取<strong>最长的一段</strong>，别累加，累加会虚高），
+挑用得最多的一两个，拼成一句话，比如「今天小红书大概开了 7 次、最久一次约 35 分钟」。够 AI 拿来关心、打趣，就行。
+用户把越多 app 接上办法一的自动化，这笔账就越准。</p>
+
+<h2 id="prompt"><span class="num">6</span>怎么把这些拼进提示词（顺带省钱）</h2>
+<p>最后一步，把上面这些拼起来发给模型。这里有个<strong>省钱的关键</strong>，尤其当你开了「提示词缓存」的时候：</p>
+<div class="callout gold">
+  <div class="h">💡 把「不变的」和「时时在变的」分开放</div>
+  <p>人设、系统提示这种<strong>整段对话都不变</strong>的，放进<strong>会被缓存的那部分</strong>，让它稳稳命中缓存、反复省钱；<br>
+  而时间、间隔、天气、心情、手机状态这些<strong>每句都在变</strong>的，全部挪到<strong>缓存部分的外面</strong>，单独拼成一段「此刻状况」。</p>
+</div>
+<p>道理很简单：时间每分钟都在变，如果你把它跟人设拌在一起放进缓存，那缓存内容每分钟都在变、永远命中不了，钱就白花了。
+分开放之后，缓存那块纹丝不动、一直命中，会变的那段即时生效，两头都占。</p>
+<pre><code>// 会被缓存的那部分：只放整段对话都不变的
+const cached = buildPersona(...);                  // 人设、系统提示
+
+// 「此刻状况」：所有会变的，拼成一段，放在缓存外面
+const nowBlock = timeNote + gapNote + weatherNote + moodNote + phoneNote;</code></pre>
+<p>还有个贯穿全文的细节：每一段都记得带一句「<strong>该怎么用</strong>」的提示——「合适时自然带一句、别每次都念、别像报菜单」。
+这是整套东西好不好用的灵魂：<strong>你给的是背景信息，不是命令。</strong>
+把判断权交还给模型，它才会像个活人——该提一句就提，不该提的时候闭嘴——而不是每句话都机械地把时间天气电量从头报一遍。</p>
+
+<h2 id="checklist"><span class="num">7</span>一张落地清单</h2>
+<ul>
+  <li>时间、间隔、天气、心情——<strong>都在前端算好</strong>，跟用户这句话一起发给后端；</li>
+  <li>天气用 open-meteo，浏览器直接请求，不经过大模型；</li>
+  <li>手机办法一：iOS 快捷指令 → 把电量 / 当前 app 发到你后端的一个简单接口；</li>
+  <li>手机办法二：读 <code>~/Library/Biome/streams/restricted/App.InFocus/remote</code>，
+  前提是同一 Apple ID + 屏幕使用时间「跨设备共享」+ 读取程序有完全磁盘访问；</li>
+  <li>办法二配齐三步过滤：先确认真醒着、用真实操作当锚点筛、只悄悄存底不主动发通知；</li>
+  <li>提示词里，缓存部分只放不变的，会变的全塞进「此刻状况」放到缓存外；</li>
+  <li>每一段都带一句「该怎么用」的提示——给背景，别给命令。</li>
+</ul>
+<p>就这些。愿你的 AI 也能知冷暖、识晨昏，回话时像个真正在身边的人。</p>
+
+<footer>
+  写于一个自用的小项目里 · 代码片段均可直接照搬，按你自己的栈调整即可。
+</footer>
+
+</div>
+</body>
+</html>
